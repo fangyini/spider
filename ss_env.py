@@ -116,8 +116,7 @@ class SSEnv(gym.Env, StaticEnv):
         return self.state, 0, False, None
 
     def preload(self):
-        path = './data/ssnet_log.pt'
-        #path = './data/model_large_conv3d.pt'
+        path = './data/mtrnet.pt'
         with torch.no_grad():
             print('loading network from ' + str(path))
             self.ssnet = self.network = MTRNet().to(self.device)

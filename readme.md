@@ -10,6 +10,8 @@ Run the following to train MTRNet:
 python3 mtrnet.py
 ```
 
+Put the trained MTRNet (mtrnet.pt) under ./data/ directory
+
 Run the following to train the agent:
 ```bash
 python3 train.py
