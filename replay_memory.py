@@ -50,15 +50,6 @@ class ReplayMemory:
         # Total number of rows stored in the replay memory.
         self.count = 0
 
-    '''def clear(self):
-        del self.columns
-        self.columns = {}
-        for column_name, data_type in self.column_types.items():
-            self.columns[column_name] = torch.empty(self.column_shapes[column_name],
-                                                 dtype=data_type)
-        self.current = 0
-        self.count = 0'''
-
     def save_first_20(self):
         num = 5000
         indices = random.sample(range(self.count), num)
@@ -67,17 +58,6 @@ class ReplayMemory:
         self.current = num
         self.count = num
 
-
-    '''def add(self, row):
-        """
-        Add new row of data to replay memory.
-        :param row: Dictionary containing the new row's data for each column.
-        """
-        for column_name in self.columns.keys():
-            self.columns[column_name][self.current] = row[column_name]
-
-        self.count = max(self.count, self.current+1)
-        self.current = (self.current + 1) % self.size'''
 
     def add_all(self, rows):
         """

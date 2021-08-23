@@ -17,6 +17,7 @@ torch.manual_seed(parameters.seed)
 np.random.seed(parameters.seed)
 random.seed(parameters.seed)
 
+
 def samples(lst, k):
     n = len(lst)
     indices = []
@@ -28,6 +29,10 @@ def samples(lst, k):
 
 
 class SSEnv(gym.Env, StaticEnv):
+    '''
+    RL Environment. This class uses gym package.
+    This class store the sparse matrix, ground truth matrix and binary selection matrix.
+    '''
     def __init__(self, ssnet=None):
         self.ssnet = ssnet
         self.k = 6
@@ -37,8 +42,6 @@ class SSEnv(gym.Env, StaticEnv):
         self.per_cell = 100
         self.threshold = 4
         self.budget = 0.8 * self.cell_amount
-        self.pos_reward = 1
-        self.neg_reward = 0.00025
         self.actions_per_time = 100
         self.norm = 8044.071
 
@@ -54,12 +57,19 @@ class SSEnv(gym.Env, StaticEnv):
         self.error = -1
         self.predict_node_value = False
 
-
     def change_device(self, new_gpu):
+        '''
+        Process on anther GPU. Used in parallel running.
+        '''
         self.device = new_gpu
         self.preload()
 
     def sample(self):
+        '''
+        This function control the portion of random actions and the actions output by the policy network.
+        Random actions provide exploration. This portion of random actions decreases during training,
+        as the model converges.
+        '''
         x = max(self.EPSILON, 0) * self.random_process.sample()
         self.EPSILON = self.EPSILON - self.EPSILON / self.DEPSILON
         return torch.from_numpy(x).to(self.device)
@@ -85,6 +95,10 @@ class SSEnv(gym.Env, StaticEnv):
         self.pre_actions = torch.ones((preACTIONS - 1, 2)).float().to(self.device) * (-1)
 
     def get_time_info(self):
+        '''
+        This function returns the time feature used by models.
+        The time feature includes the minute of hour, hour of day, and day of week.
+        '''
         min = self.time * 10
         if not self.isTrain:
             min += (5760 * 10)
@@ -230,6 +244,3 @@ class SSEnv(gym.Env, StaticEnv):
     def get_obs_for_states(states):
         states = torch.stack(states)
         return states.cpu().numpy()
-
-    def get_return(self, state, step_idx):
-        return self.pos_reward - self.neg_reward * (step_idx + self.first_time_actions * self.cell_amount)

@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
-from utils import Paras
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from utils import Paras
@@ -11,14 +9,14 @@ CELL_SIZE = parameters.cell_size
 CYCLE = parameters.cycle
 softsign = parameters.softsign_scale
 PER = parameters.per
-
-def get_proto_action(real_a):
-    proto1 = (real_a[:, 0] - 0) / PER * 2 * softsign - softsign
-    proto2 = (real_a[:, 1] - 0) / PER * 2 * softsign - softsign
-    return torch.stack([proto1, proto2]).T
+preAction = parameters.pre_actions
 
 
 class Trainer:
+    '''
+    Trainer provides the training function for value network and policy network.
+    Currently we do not use training function of value network, because we use a trained MTRNet.
+    '''
     def __init__(self, Policy, Value, device):
         self.p_model = Policy()
         self.v_model = Value()
@@ -53,10 +51,8 @@ class Trainer:
 
     def train_policy(self, obs, act, time, epoch=None):
         self.p_optimizer.zero_grad()
-        p = self.p_model.process(obs[:, :60000].view(-1, 6, 100, 100),
-                                 obs[:, 60000:].view(-1, 100, 100).unsqueeze(1),
-                                 time)
-        policy_loss = self.value_criterion(p, act)
+        p = self.p_model.process(obs.view(-1, 100, 100), act[:, :-2], time)
+        policy_loss = self.value_criterion(p, act[:, -2:])
         policy_loss.backward()
         self.p_optimizer.step()
         return policy_loss.item()
@@ -66,7 +62,5 @@ class Trainer:
         value = self.v_model(obs)
         value_loss = self.value_criterion(value, gt.view(value.size()))
         value_loss.backward()
-        if epoch == 0:
-            plot_grad_flow(self.v_model.named_parameters(), epoch)
         self.v_optimizer.step()
         return value_loss.item()

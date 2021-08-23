@@ -64,7 +64,7 @@ class PolicyNetwork(nn.Module):
 
     def process(self, x, act, time=None, isPrint=False):
         act = torch.cat((act.reshape(1, -1), time), dim=1)
-        y = self.forward(x.unsqueeze(0), act, isPrint)
+        y = self.forward(x.unsqueeze(1), act, isPrint)
         return y
 
     def forward(self, x, act, isPrint=False):

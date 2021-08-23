@@ -77,24 +77,6 @@ class _ConvNd(Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
 
-class Conv2d(_ConvNd):
-
-    def __init__(self, in_channels, out_channels, kernel_size, stride=[1, 1],
-                 padding='VALID', dilation=[1, 1], groups=1, bias=True, weight=None):
-        kernel_size = _pair(kernel_size)
-        stride = _pair(stride)
-        #padding = _pair(padding)
-        dilation = _pair(dilation)
-        super(Conv2d, self).__init__(
-            in_channels, out_channels, kernel_size, stride, padding, dilation,
-            False, _pair(0), groups, bias, weight)
-
-    def forward(self, input, device='cpu'):
-        return conv2d_same_padding(input, self.weight.to(device), self.bias.to(device), self.stride,
-                                   self.padding, self.dilation, self.groups)
-
-
-# custom con2d, because pytorch don't have "padding='same'" option.
 def conv2d_same_padding(input, weight, bias=None, stride=1, padding='VALID', dilation=1, groups=1):
     if padding == 'SAME':
         padding = 0
@@ -124,6 +106,27 @@ def conv2d_same_padding(input, weight, bias=None, stride=1, padding='VALID', dil
 
     return F.conv2d(input, weight, bias, stride, padding=padding,
                     dilation=dilation, groups=groups)
+
+
+'''
+Custom Conv2D:
+PyTorch Conv 2D does not have 'SAME' padding option.
+'''
+class Conv2d(_ConvNd):
+
+    def __init__(self, in_channels, out_channels, kernel_size, stride=[1, 1],
+                 padding='VALID', dilation=[1, 1], groups=1, bias=True, weight=None):
+        kernel_size = _pair(kernel_size)
+        stride = _pair(stride)
+        #padding = _pair(padding)
+        dilation = _pair(dilation)
+        super(Conv2d, self).__init__(
+            in_channels, out_channels, kernel_size, stride, padding, dilation,
+            False, _pair(0), groups, bias, weight)
+
+    def forward(self, input, device='cpu'):
+        return conv2d_same_padding(input, self.weight.to(device), self.bias.to(device), self.stride,
+                                   self.padding, self.dilation, self.groups)
 
 
 class MTRNet(nn.Module):

@@ -1,6 +1,9 @@
 import numpy as np
 
 class Paras:
+    '''
+    This class stores all the hyperparameters.
+    '''
     def __init__(self):
         self.cell_size = 10000
         self.cycle = 6
