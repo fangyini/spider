@@ -6,9 +6,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import time
 import sys
-from models import zipNet
-from models import selection_prediction2
-from test import test_selection_prediction
+from models import zipNet, selection_prediction
 
 isCuda = torch.cuda.is_available()
 CYCLE = 6
@@ -45,12 +43,12 @@ def processData():
     print('median=' + str(median))
     print('std=' + str(std))
     print('value=' + str((mean - median) / std))
-    quit()
+
 
 def genWhole():
     size = 4032
     network = zipNet().to(device)
-    network.load_state_dict(torch.load('./data/ssnet_log.pt', map_location=torch.device(device)))
+    network.load_state_dict(torch.load('./data/mtrnet.pt', map_location=torch.device(device)))
     network.eval()
 
     y = []
@@ -64,8 +62,6 @@ def genWhole():
         y.append(y_i)
     y = torch.stack(y).view(-1, 100, 100)
 
-    #a = y.sum(dim=(1, 2))
-    #torch.save(a, 'models/training_with_selection/cells_of_selection_data.pt')
 
     x = []
     for i in range(0, size, 144):
@@ -177,7 +173,6 @@ def train():
         loss_test = test(epoch, model)
         mean_loss_test.append(loss_test)
         if epoch % 1 == 0 and epoch > 5:
-            test_selection_prediction(False, 0, 1008, 'fc' + str(epoch) + '.pt', 0.1, model)
             torch.save(model.state_dict(), './models/training_with_selection/model_'
                        + str(epoch) + '.pt')
             np.save('./models/training_with_selection/model_loss_'
@@ -200,8 +195,6 @@ def test(epoch, model):
             val_losses_be.append(val_loss.item())
             yhat = sig(yhat)
             yhat = torch.where((yhat>=thre), 1, 0)
-            #print(yhat.sum())
-
             accuracy = 1 - abs(yhat - y_val).sum().mean() / 10000
             acc.append(accuracy.item())
             acc2.append(abs(y_val.sum()-yhat.sum()).item())
@@ -273,17 +266,8 @@ def testJ(epoch, model, thre=0.5):
 
 
 if __name__ == '__main__':
-    #processData()
-    #genWhole()
-    #genData()
-    #genDataTest()
-    #model = selection_prediction(1, 32, (5, 5), 3, CELL_SIZE).to(device)
-    #model.load_state_dict(torch.load('models/training_with_selection/model_69.pt',
-    #                                 map_location=torch.device('cpu')))
-    model = selection_prediction2().to(device)
-    #model.load_state_dict(torch.load('models/training_with_selection/best_selection_prediction.pt',
-    #                                map_location=torch.device('cpu')))
-    thre = 0.3958 #torch.load('./thre.pt', map_location=torch.device('cpu')).to(device)
+    model = selection_prediction().to(device)
+    #thre = 0.3958
 
     lr = 1e-4
     n_epochs = 100
@@ -295,27 +279,11 @@ if __name__ == '__main__':
 
     x_train = torch.load('./models/training_with_selection/train_x.pt', map_location=torch.device('cpu')).to(device).float()
     y_train = torch.load('./models/training_with_selection/train_y.pt', map_location=torch.device('cpu')).to(device).float()
-    ones = y_train.sum(dim=0)
-    total = y_train.size()[0]
-    weight = ((total - ones) / ones).view(10000)
+    #ones = y_train.sum(dim=0)
+    #total = y_train.size()[0]
+    #weight = ((total - ones) / ones).view(10000)
 
-    '''size = total
-    y = y_train.cpu().numpy()
-    a = y.sum(axis=0).flatten() / size
-    print('min+max/2=' + str((np.max(a) + np.min(a)) / 2))
-
-    hist, bin_edges = np.histogram(a, bins=np.arange(0, 1, 0.1))
-    hist = hist / 10000
-    mean = np.mean(hist)
-    median = np.median(hist)
-    std = np.std(hist)
-    print('mean=' + str(mean))
-    print('median=' + str(median))
-    print('std=' + str(std))
-    print('value=' + str((mean - median) / std))
-    quit()'''
-
-    loss_fn = nn.BCEWithLogitsLoss(weight=weight)  #TODO
+    loss_fn = nn.BCEWithLogitsLoss() #weight=weight)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     train_step = make_train_step(model, loss_fn, optimizer)
 
@@ -329,22 +297,4 @@ if __name__ == '__main__':
     train_loader = DataLoader(dataset=train_dataset, batch_size=batchsize, shuffle=True)
     val_loader = DataLoader(dataset=val_dataset, batch_size=1, shuffle=False)
 
-
     train()
-    #test(0, model)
-    '''ind_m = torch.arange(0.01, 0.99, 0.01)
-    m = testJ(0, model, 0.01)
-    for i in range(1, 99, 1):
-        i = float(i/100)
-        #testJ(0, model, i)
-        m = torch.cat((m, testJ(0, model, i)), dim=0)
-    value, ind = m.max(dim=0)
-    res = torch.zeros((100, 100))
-    for x in range(100):
-        for y in range(100):
-            res[x][y] = ind_m[ind[x][y]]
-    torch.save(res, './thre.pt')'''
-    '''for i in range(1, 10):
-        model.load_state_dict(torch.load('models/training_with_selection/model_'+str(i)+'.pt',
-                                        map_location=torch.device('cpu')))
-        test(i, model)'''

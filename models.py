@@ -219,3 +219,208 @@ class MTRNet(nn.Module):
         x = self.conv_f3(x)
         x = self.flatten(x)
         return x
+
+
+class selection_prediction(nn.Module):
+    def __init__(self, cell_size=1, observations=1, filter_size=4, feature_map=16):
+        super(selection_prediction, self).__init__()
+        self.per = int(np.sqrt(cell_size))
+        self.conv_ad = Conv2d(observations, feature_map, filter_size, stride=1, padding='SAME')
+        self.conv3d = nn.Conv3d(observations, 16, kernel_size=(3, filter_size, filter_size), stride=1,
+                                padding=0)
+        self.maxpool = nn.MaxPool3d(kernel_size=(2, 1, 1), stride=(2, 1, 1))
+
+        self.bn = nn.BatchNorm2d(feature_map)
+        self.conv = Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME')
+
+        self.conv_f1 = nn.Sequential(
+            Conv2d(feature_map, feature_map * 2, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+        )
+        self.conv_f2 = nn.Sequential(
+            Conv2d(feature_map * 2, feature_map * 3, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+        )
+        self.conv_f3 = nn.Sequential(
+            Conv2d(feature_map * 3, 1, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+        self.flatten = nn.Flatten()
+
+        self.zip1 = nn.Sequential(
+            Conv2d(48, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+            nn.BatchNorm2d(feature_map)
+        )
+
+        self.zip2 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+            nn.BatchNorm2d(feature_map)
+        )
+
+        self.zip3 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+            nn.BatchNorm2d(feature_map)
+        )
+
+        self.zip4 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+            nn.BatchNorm2d(feature_map)
+        )
+
+        self.zip5 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu'),
+            nn.BatchNorm2d(feature_map)
+        )
+        self.fc1 = nn.Linear(10015, 10000)
+        self.fc2 = nn.Linear(10000, 10000)
+        self.fc3 = nn.Linear(10000, 10000)
+        self.sigmoid = nn.Sigmoid()
+
+    def activation_func(self, activation):
+        return nn.ModuleDict([
+            ['relu', nn.ReLU(inplace=True)],
+            ['leaky_relu', nn.LeakyReLU(negative_slope=0.01, inplace=True)],
+            ['selu', nn.SELU(inplace=True)],
+            ['none', nn.Identity()]
+        ])[activation]
+
+    def step(self, x):
+        t = x[:, -1]
+        t = [t - a for a in range(5)]
+        t = torch.stack(t).transpose(1, 0)
+        minute = t * 10
+        day_of_wk = ((minute / 1440).int() % 7) / 6 * 2 - 1
+        hr_of_day = ((minute / 60).int() % 24) / 23 * 2 - 1
+        min_of_hr = ((minute).int() % 60) / 50 * 2 - 1
+
+        x = x[:, :50000]
+        time_info = torch.cat((day_of_wk, hr_of_day, min_of_hr), dim=1)
+        return self.forward(x, time_info.float())
+
+    def forward(self, x, a):
+        batch = x.size()[0]
+        x = x.reshape(batch, 1, 5, 100, 100)
+        x = F.pad(x, pad=(1, 2, 1, 2))
+        x = self.conv3d(x)
+        x0 = F.leaky_relu(x)
+        x0 = x0.reshape(batch, -1, 100, 100)
+
+        x0 = self.zip1(x0)
+        b2 = self.zip2(x0)
+        b3 = self.zip3(b2)
+        x = x0 + b3
+
+        b4 = self.zip4(x)
+        x = b2 + b4
+        b5 = self.zip5(x)
+        x = b5 + x0
+
+        x = self.conv_f1(x)
+        x = self.conv_f2(x)
+        x = self.conv_f3(x)
+        x = self.flatten(x)
+        x = torch.cat((x, a), dim=1)
+        x = self.fc1(x)
+        x = F.leaky_relu(x)
+        x = self.fc2(x)
+        x = F.leaky_relu(x)
+        x = self.fc3(x)
+        x = x.view(-1, 100, 100)
+        return x
+
+
+class zipNet(nn.Module):
+    def __init__(self, cell_size=1, observations=1, filter_size=4, feature_map=32, skip=True):
+        super(zipNet, self).__init__()  # input: (?, 10, 10, 4), ?, 4, 10, 10
+        self.per = int(np.sqrt(cell_size))
+        self.conv_ad = Conv2d(observations, feature_map, filter_size, stride=1, padding='SAME')
+        self.conv3d = nn.Conv3d(observations, 16, kernel_size=(3, filter_size, filter_size), stride=1,
+                                padding=0)
+        self.maxpool = nn.MaxPool3d(kernel_size=(2, 1, 1), stride=(2, 1, 1))
+
+        self.bn = nn.BatchNorm2d(feature_map)
+        self.conv = Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME')
+
+        self.conv_f1 = nn.Sequential(
+            Conv2d(feature_map, feature_map*2, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+        self.conv_f2 = nn.Sequential(
+            Conv2d(feature_map*2, feature_map*3, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+        self.conv_f3 = nn.Sequential(
+            Conv2d(feature_map*3, 1, filter_size, stride=1, padding='SAME'),
+            self.activation_func('none')
+        )
+        self.flatten = nn.Flatten()
+
+        self.zip1 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+
+        self.zip2 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+
+        self.zip3 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+
+        self.zip4 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+
+        self.zip5 = nn.Sequential(
+            Conv2d(feature_map, feature_map, filter_size, stride=1, padding='SAME'),
+            self.activation_func('leaky_relu')
+        )
+        self.skip = skip
+
+    def activation_func(self, activation):
+        return nn.ModuleDict([
+            ['relu', nn.ReLU(inplace=True)],
+            ['leaky_relu', nn.LeakyReLU(negative_slope=0.01, inplace=True)],
+            ['selu', nn.SELU(inplace=True)],
+            ['none', nn.Identity()]
+        ])[activation]
+
+    def step(self, x, t=None):
+        return self.forward(x)
+
+    def change_para(self, device):
+        self.to(device)
+
+    def forward(self, x):
+        batch = x.size()[0]
+        x = x.reshape(batch, 1, 6, 100, 100)
+        x = F.pad(x, pad=(1, 2, 1, 2))
+        x = self.conv3d(x)
+        x0 = F.leaky_relu(x)
+        x0 = self.maxpool(x0)
+        x0 = x0.reshape(batch, -1, 100, 100)
+
+        b1 = self.zip1(x0)
+        b2 = self.zip2(b1)
+        b3 = self.zip3(b2)
+        x = b1 + b3
+
+        b4 = self.zip4(x)
+        x = b2 + b4
+        b5 = self.zip5(x)
+        x = b5 + x0
+
+        x = self.conv_f1(x)
+        x = self.conv_f2(x)
+        x = self.conv_f3(x)
+        x = self.flatten(x)
+        return x

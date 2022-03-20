@@ -112,6 +112,7 @@ class SSEnv(gym.Env, StaticEnv):
         self.first_file = True
         self.isTrain = isTrain
         self.isFirst = True
+        self.first_time_actions = 0.1
         p = 0.6
         self.selec_m = np.random.choice([0, 1], size=(self.k, self.cell_amount), p=[1 - p, p])
         self.selec_m = torch.from_numpy(self.selec_m).float().to(self.device)
@@ -219,6 +220,8 @@ class SSEnv(gym.Env, StaticEnv):
         self.yhat = yhat
         yhat = torch.exp(3.4086666 * yhat) - 1
         y_gt = torch.exp(3.4086666 * y_gt) - 1
+        self.yhat_unnorm = yhat
+        self.gt_unnorm = y_gt
         self.error = torch.abs(yhat - y_gt).mean()
         return self.error < self.threshold
 

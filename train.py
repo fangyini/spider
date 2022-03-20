@@ -79,6 +79,10 @@ def train(trainer, t_sta, t_end, gpuid=None):
     cell_selection = CellSelection(p_network, v_network, train_env, gpuid)
 
     #test(p_network, v_network, test_env, gpuid)
+    states = []
+    selec = []
+    predicted = []
+    cells = torch.zeros((t_end - t_sta))
 
     for epoch_i in range(epoch):
         print('Epoch='+str(epoch_i))
@@ -91,6 +95,12 @@ def train(trainer, t_sta, t_end, gpuid=None):
             train_env.epoch = training_network_time
             obs, act, time_info = cell_selection.execute_episode()
             mem.add_all({"ob": obs, "act": act, "time": time_info})
+
+            '''train_env.epoch = 999
+            states.append(train_env.state[:5])
+            cell_selection.execute_episode()
+            selec.append(train_env.selec_m[4])
+            predicted.append(train_env.yhat)'''
 
             if i % i_time == 0 and i >= i_time:
                 p_network.train()
@@ -115,7 +125,9 @@ def train(trainer, t_sta, t_end, gpuid=None):
                 t1 = time.time()
             i += 1
             t = train_env.time
-
+        '''torch.save(states, 'models/training_with_selection/states_log_'+str(t_sta)+'_'+str(t_end)+'.pt')
+        torch.save(selec, 'models/training_with_selection/selec_log_'+str(t_sta)+'_'+str(t_end)+'.pt')
+        torch.save(predicted, 'models/training_with_selection/predi_log_' + str(t_sta) + '_' + str(t_end) + '.pt')'''
 
 if __name__ == '__main__':
     torch.set_printoptions(precision=8)

@@ -73,5 +73,4 @@ def test(p_network, v_network, test_env, gpuid):
             cells[t - 1] = total_cell
 
     mean_cell = cells.mean()
-    cells_array.append(mean_cell)
     print('validation Mean=' + str(mean_cell))

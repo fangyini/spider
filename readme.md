@@ -17,3 +17,12 @@ Run the following to train the agent:
 python3 train.py
 ```
 
+Then train the selection predictoin model:
+1. Create dataset by loading the checkpoint of the agent in train.py (Line 143) and uncomment the saving lines 
+   (line 99-103 and line 128-131 )
+2. Run selection_prediction.py
+
+To evaluate Spider:
+1. add the path of the selection prediction model in evaluate.py (Line 39)
+2. run evaluate.py
+
